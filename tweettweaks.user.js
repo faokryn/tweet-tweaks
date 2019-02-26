@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Tweet Tweaks
-// @version      1.0
+// @version      1.0.1
 // @namespace    https://gitlab.com/faokryn/tweet-tweaks
 // @description  Some opinionated tweaks for TweetDeck
 // @author       Colin O'Neill <colin@faokryn.com>
@@ -8,10 +8,67 @@
 // @grant        none
 // ==/UserScript==
 
+function awaitSelector(selector) {
+    return new Promise((resolve, reject) => {
+        try {
+            const results = this.querySelector(selector);
+            let observer;
+
+            if (results) {
+                resolve(results);
+            }
+
+            observer = new MutationObserver((mutations) => {
+                const results = this.querySelector(selector);
+
+                if (results) {
+                    observer.disconnect();
+                    resolve(results);
+                }
+            });
+            observer.observe(this, {childList: true, subtree: true});
+        }
+        catch (exception) {
+            reject(exception);
+        }
+    });
+}
+
+function awaitSelectorAll(selector) {
+    return new Promise((resolve, reject) => {
+        try {
+            const results = this.querySelector(selector);
+            let observer;
+
+            if (results && results.length) {
+                resolve(results);
+            }
+
+            observer = new MutationObserver((mutations) => {
+                const results = this.querySelectorAll(selector);
+
+                if (results && results.length) {
+                    observer.disconnect();
+                    resolve(results);
+                }
+            });
+            observer.observe(this, {childList: true, subtree: true});
+        }
+        catch (exception) {
+            reject(exception);
+        }
+    });
+}
+
+Document.prototype.awaitSelector = awaitSelector;
+Document.prototype.awaitSelectorAll = awaitSelectorAll;
+Element.prototype.awaitSelector = awaitSelector;
+Element.prototype.awaitSelectorAll = awaitSelectorAll;
+
 (function() {
     'use strict';
 
-    let style = `
+    const style = `
         html.tweaked section.column {
             width: 600px;
         }
@@ -59,9 +116,8 @@
             background-image: none;
         }
     `
-    let styleElem = document.createElement('style');
-
-    let tweetObserver = new MutationObserver((mutList) => {
+    const styleElem = document.createElement('style');
+    const tweetObserver = new MutationObserver((mutList) => {
         mutList.forEach((mut) => {
             mut.addedNodes.forEach((node) => {
                 if (node.tagName === "ARTICLE") {
@@ -70,26 +126,11 @@
             });
         });
     });
-    let opt = {childList: true}; // remember, if more observations are added, it needs to be handled in callbacks
+    const opt = {childList: true}; // remember, if more observations are added, it needs to be handled in callbacks
 
-    function markIfRetweet(tweet) {
+    const markIfRetweet = (tweet) => {
         if (tweet.querySelector('.nbfc').lastChild.wholeText === ' Retweeted  ') {
             tweet.classList.add('retweet');
-        }
-    }
-
-    function observeTweets() {
-        let chirpContainers = document.querySelectorAll('.chirp-container');
-        if (chirpContainers.length) {
-            chirpContainers.forEach((e) => {
-                tweetObserver.observe(e, opt);
-            });
-            document.querySelectorAll('article.stream-item').forEach((e) => {
-                markIfRetweet(e);
-            });
-        }
-        else {
-            window.setTimeout(observeTweets, 500);
         }
     }
 
@@ -99,5 +140,10 @@
     document.querySelector('html').classList.add('tweaked');
     document.querySelector('head').appendChild(styleElem);
 
-    observeTweets();
+    document.awaitSelectorAll('.chirp-container').then((chirpContainers) => {
+        chirpContainers.forEach((c) => {
+            tweetObserver.observe(c, opt);
+            c.querySelectorAll('article.stream-item').forEach((t) => markIfRetweet(t));
+        });
+    });
 })();
