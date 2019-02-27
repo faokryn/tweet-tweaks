@@ -68,6 +68,30 @@ Element.prototype.awaitSelectorAll = awaitSelectorAll;
 (function() {
     'use strict';
 
+    const markIfRetweet = (tweet) => {
+        if (tweet.querySelector('.nbfc').lastChild.wholeText === ' Retweeted  ') {
+            tweet.classList.add('retweet');
+        }
+    }
+
+    const addBookmark = (tweet) => {
+        let time = tweet.querySelector('time');
+        let bookmarkBtn = document.createElement('i');
+        bookmarkBtn.className = 'icon icon-bookmark bookmark-btn';
+
+        bookmarkBtn.addEventListener('click', (evt) => {
+            evt.stopPropagation();
+            console.log('clicked tweet with time ' + time.getAttribute('data-time'));
+        });
+
+        time.insertBefore(bookmarkBtn, time.querySelector('a'));
+    }
+
+    const modifyTweet = (tweet) => {
+        markIfRetweet(tweet);
+        addBookmark(tweet);
+    }
+
     const style = `
         html.tweaked section.column {
             width: 600px;
@@ -93,7 +117,6 @@ Element.prototype.awaitSelectorAll = awaitSelectorAll;
             );
         }
 
-
         html.tweaked .media-size-large,
         html.tweaked .media-size-large-height {
             height: 560px;
@@ -115,24 +138,27 @@ Element.prototype.awaitSelectorAll = awaitSelectorAll;
         html.tweaked .media-size-large-height:after {
             background-image: none;
         }
+
+        html.tweaked i.bookmark-btn {
+            height: auto;
+            vertical-align: middle;
+        }
+
+        html.tweaked i.bookmark-btn:hover {
+            color: #1da1f2;
+        }
     `
     const styleElem = document.createElement('style');
     const tweetObserver = new MutationObserver((mutList) => {
         mutList.forEach((mut) => {
             mut.addedNodes.forEach((node) => {
                 if (node.tagName === "ARTICLE") {
-                    markIfRetweet(node);
+                    modifyTweet(node);
                 }
             });
         });
     });
     const opt = {childList: true}; // remember, if more observations are added, it needs to be handled in callbacks
-
-    const markIfRetweet = (tweet) => {
-        if (tweet.querySelector('.nbfc').lastChild.wholeText === ' Retweeted  ') {
-            tweet.classList.add('retweet');
-        }
-    }
 
     styleElem.setAttribute('type', 'text/css');
     styleElem.innerHTML = style;
@@ -143,7 +169,7 @@ Element.prototype.awaitSelectorAll = awaitSelectorAll;
     document.awaitSelectorAll('.chirp-container').then((chirpContainers) => {
         chirpContainers.forEach((c) => {
             tweetObserver.observe(c, opt);
-            c.querySelectorAll('article.stream-item').forEach((t) => markIfRetweet(t));
+            c.querySelectorAll('article.stream-item').forEach((t) => modifyTweet(t));
         });
     });
 })();
